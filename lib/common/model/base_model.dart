@@ -1,19 +1,27 @@
 class BaseModel {
-  bool? success;
-  String? type;
-  String? url;
+  String? code;
+  String? message;
+  String? error;
+  dynamic data;
 
-  BaseModel({this.success, this.type, this.url});
+  BaseModel({
+    this.code,
+    this.message,
+    this.error,
+    this.data,
+  });
 
   factory BaseModel.fromJson(Map<String, dynamic> json) => BaseModel(
-        success: json['success']?.toString().contains("true"),
-        type: json['type']?.toString(),
-        url: json['url']?.toString(),
+        code: json['code']?.toString(),
+        message: json['message']?.toString(),
+        error: json['error']?.toString(),
+        data: json['data'],
       );
 
   Map<String, dynamic> toJson() => {
-        if (success != null) 'success': success,
-        if (type != null) 'type': type,
-        if (url != null) 'url': url,
+        if (code != null) 'code': code,
+        if (message != null) 'message': message,
+        if (error != null) 'error': error,
+        if (data != null) 'data': data,
       };
 }

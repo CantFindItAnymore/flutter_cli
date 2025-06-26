@@ -1,18 +1,35 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_cli/core/index.dart';
 
-/**
- * @author: Kxmrg
- * @github: https://github.com/Kxmrg
- * @version: 1.0.0
- * @copyright: Copyright © 2023-2024 Kxmrg
- * @license: MIT License
- * @date: 2024-06-28
- * @description: 
- */
+/// API统一响应格式
+class ApiResponse<T> {
+  final int code;
+  final String? message;
+  final T? data;
+
+  ApiResponse({
+    required this.code,
+    this.message,
+    this.data,
+  });
+
+  factory ApiResponse.fromJson(Map<String, dynamic> json,
+      [T Function(dynamic)? fromJson]) {
+    return ApiResponse(
+      code: json['code'] as int,
+      message: json['message']?.toString(),
+      data: json['data'] != null && fromJson != null
+          ? fromJson(json['data'])
+          : json['data'] as T?,
+    );
+  }
+
+  bool get isSuccess => code == 200;
+}
 
 /// Response统一处理回调
 typedef OnResponseHandler = Future<String?> Function(
-    Response<dynamic> response);
+    ApiResponse<dynamic> response);
 
 /// 请求处理拦截器
 /// 如返回true则中断后面流程
@@ -22,11 +39,11 @@ typedef OnRequestHandler = Future<bool> Function(
 typedef OnErrorHandler = Future<String?> Function(DioException err);
 
 /// 网络请求服务
-class HttpService extends GetxService {
+class Http extends GetxService {
   static const showLog = 'showLog';
   static const showError = 'showError';
 
-  static HttpService get to => Get.find();
+  static Http get to => Get.find();
 
   late final Dio _dio;
   Dio get dio => _dio;
@@ -36,7 +53,7 @@ class HttpService extends GetxService {
 
   /// 初始化
   /// [timeout] 请求超时时间
-  Future<HttpService> init({int timeout = 10}) async {
+  Future<Http> init({int timeout = 30}) async {
     BaseOptions options = BaseOptions(
         connectTimeout: Duration(seconds: timeout),
         receiveTimeout: Duration(seconds: timeout),
@@ -79,7 +96,7 @@ class HttpService extends GetxService {
   }
 
   /// 基础请求
-  Future<Response?> request(
+  Future<ApiResponse?> request(
     String path, {
     Map<String, dynamic>? params,
     data,
@@ -87,35 +104,68 @@ class HttpService extends GetxService {
     Options? options,
     ProgressCallback? onSendProgress,
     ProgressCallback? onReceiveProgress,
+    bool isFormData = false,
+    bool showError = true,
   }) async {
     options ??= Options(method: 'get');
+    if (isFormData) {
+      options.contentType = 'multipart/form-data';
+    }
     try {
-      Response response = await _dio.request(path,
+      Response dioResponse = await _dio.request(path,
           data: data,
           queryParameters: params,
           cancelToken: cancelToken ?? _cancelToken,
           options: options,
           onSendProgress: onSendProgress,
           onReceiveProgress: onReceiveProgress);
+
+      // log('response: ${response.data.toString()}');
+
+      // 无返回内容
+      if (dioResponse.data == null) {
+        Get.snackbar('error', 'Server error',
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+            snackStyle: SnackStyle.FLOATING,
+            snackPosition: SnackPosition.TOP);
+        return ApiResponse.fromJson({
+          'code': 500,
+          'message': 'Server error',
+          'data': null,
+        });
+      }
+
+      ApiResponse response = ApiResponse.fromJson(dioResponse.data);
+
+      /// 无效token
+      if (response.code == 403) {
+        log('invalid token');
+        removeKey('token');
+        clearAuthorization();
+      } else if (response.code == 500 && showError == true) {
+        Get.snackbar('error', 'Server error',
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+            snackStyle: SnackStyle.FLOATING,
+            snackPosition: SnackPosition.TOP);
+      }
+
       return response;
     } on DioException catch (e) {
-      bool isShowError = true;
-      if (e.requestOptions.headers.containsKey(showError)) {
-        isShowError = e.requestOptions.headers[showError];
-      }
-      if (isShowError) {
-        Loading.error(e.message);
-      }
+      log('[Api.request] DioException caught: url: ${e.requestOptions.path}, Message: ${e.message}');
+
       return null;
     }
   }
 
   /// GET请求
-  Future<Response?> get(
+  Future<ApiResponse?> get(
     String path, {
     Map<String, dynamic>? params,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
+    bool showError = true,
   }) async {
     Options options = Options(method: 'get', headers: headers);
     return await request(
@@ -123,29 +173,41 @@ class HttpService extends GetxService {
       options: options,
       params: params,
       cancelToken: cancelToken,
+      showError: showError,
     );
   }
 
   /// POST请求
-  Future<Response?> post(
+  Future<ApiResponse?> post(
     String path, {
     Map<String, dynamic>? params,
     data,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
+    bool isFormData = false,
+    bool showError = true,
   }) async {
     Options options = Options(method: 'post', headers: headers);
+
+    var formData = isFormData
+        ? data is FormData
+            ? data
+            : FormData.fromMap(data)
+        : data;
+
     return await request(
       path,
       options: options,
       params: params,
-      data: data,
+      data: formData,
       cancelToken: cancelToken,
+      isFormData: isFormData,
+      showError: showError,
     );
   }
 
   /// PUT请求
-  Future<Response?> put(
+  Future<ApiResponse?> put(
     String path, {
     Map<String, dynamic>? params,
     data,
@@ -163,7 +225,7 @@ class HttpService extends GetxService {
   }
 
   /// DELETE请求
-  Future<Response?> delete(
+  Future<ApiResponse?> delete(
     String path, {
     Map<String, dynamic>? params,
     data,
@@ -186,7 +248,7 @@ class HttpService extends GetxService {
 
   /// 设置授权(Token) 默认在开头添加Bearer
   /// [authorization] 授权Token
-  void setAuthorization(String authorization, {bool addBearer = true}) {
+  void setAuthorization(String authorization, {bool addBearer = false}) {
     if (addBearer) {
       _authorization = 'Bearer $authorization';
     } else {
@@ -231,17 +293,17 @@ class HttpService extends GetxService {
 class DioInterceptors extends QueuedInterceptor {
   @override
   void onRequest(options, handler) async {
-    OnRequestHandler? onRequestHandler = HttpService.to.onRequestHandler;
+    OnRequestHandler? onRequestHandler = Http.to.onRequestHandler;
     if (onRequestHandler != null) {
       if (await onRequestHandler(options, handler)) {
         return;
       }
     }
 
-    String? authorization = HttpService.to.authorization;
+    String? authorization = Http.to.authorization;
     if (authorization.isNotEmptyOrNull) {
-      if (!options.headers.containsKey('Authorization')) {
-        options.headers.addAll({'Authorization': authorization});
+      if (!options.headers.containsKey('token')) {
+        options.headers.addAll({'token': authorization});
       }
     }
     handler.next(options);
@@ -249,14 +311,15 @@ class DioInterceptors extends QueuedInterceptor {
 
   @override
   void onResponse(response, handler) async {
-    OnResponseHandler? onResponseHandler = HttpService.to.onResponseHandler;
+    OnResponseHandler? onResponseHandler = Http.to.onResponseHandler;
     if (onResponseHandler != null) {
-      String? msg = await onResponseHandler(response);
+      ApiResponse apiResponse = ApiResponse.fromJson(response.data);
+      String? msg = await onResponseHandler(apiResponse);
       if (msg != null) {
         handler.reject(
           DioException(
             type: DioExceptionType.badResponse,
-            message: msg.isEmpty ? '服务器异常' : msg,
+            message: msg.isEmpty ? 'Server error' : msg,
             requestOptions: response.requestOptions,
             response: response,
             error: null,
@@ -271,7 +334,7 @@ class DioInterceptors extends QueuedInterceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     String? errorMessage;
-    OnErrorHandler? onErrorHandler = HttpService.to.onErrorHandler;
+    OnErrorHandler? onErrorHandler = Http.to.onErrorHandler;
     if (onErrorHandler != null) {
       errorMessage = await onErrorHandler(err);
     }
@@ -280,28 +343,28 @@ class DioInterceptors extends QueuedInterceptor {
         case DioExceptionType.connectionTimeout:
         case DioExceptionType.sendTimeout:
         case DioExceptionType.receiveTimeout:
-          errorMessage = '服务器连接超时';
+          errorMessage = 'Server connection timeout';
           break;
         case DioExceptionType.connectionError:
-          errorMessage = '服务器连接失败';
+          errorMessage = 'Server connection failed';
           break;
         case DioExceptionType.badCertificate:
-          errorMessage = '无效的证书';
+          errorMessage = 'Invalid certificate';
           break;
         case DioExceptionType.cancel:
-          errorMessage = '请求取消';
+          errorMessage = 'Request cancelled';
           break;
         case DioExceptionType.unknown:
           if (await isNetworkAvailable()) {
-            errorMessage = '服务器连接失败';
+            errorMessage = 'Server connection failed';
           } else {
-            errorMessage = '设备未连接网络';
+            errorMessage = 'No network connection';
           }
           break;
         case DioExceptionType.badResponse:
           int? statusCode = err.response?.statusCode;
           if (statusCode != null) {
-            errorMessage = '服务器异常:$statusCode';
+            errorMessage = 'Server error: $statusCode';
           }
           break;
       }

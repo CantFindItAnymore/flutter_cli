@@ -12,14 +12,4 @@ class HomeController extends GetxController with BaseControllerMixin {
     super.onInit();
     FlutterNativeSplash.remove();
   }
-
-  @override
-  void onReady() {
-    super.onReady();
-  }
-
-  @override
-  void onClose() {
-    super.onClose();
-  }
 }

@@ -9,17 +9,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_cli/core/index.dart';
 
-/**
- * @author: Kxmrg
- * @github: https://github.com/Kxmrg
- * @version: 1.0.0
- * @copyright: Copyright © 2023-2024 Kxmrg
- * @license: MIT License
- * @date: 2024-06-28
- * @description: 
- */
 /// 插件包名
-const String pluginPackageName = 'getx_scaffold';
+const String pluginPackageName = 'flutter_cli';
 
 late final bool isDebugMode;
 
@@ -28,7 +19,7 @@ Future<WidgetsBinding> init({
   bool isDebug = false,
   String? logTag,
   String? networkLog,
-  int dioTimeOut = 10,
+  int dioTimeOut = 30,
   List<Locale>? supportedLocales,
 }) async {
   isDebugMode = isDebug;
@@ -36,7 +27,7 @@ Future<WidgetsBinding> init({
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   await Get.putAsync(
       () => GlobalService().init(supportedLocales: supportedLocales));
-  await Get.putAsync(() => HttpService().init(timeout: dioTimeOut));
+  await Get.putAsync(() => Http().init(timeout: dioTimeOut));
   return widgetsBinding;
 }
 

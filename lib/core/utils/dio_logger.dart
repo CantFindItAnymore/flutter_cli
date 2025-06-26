@@ -56,7 +56,7 @@ class PrettyDioLogger extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    if (showRequest && options.headers[HttpService.showLog] != false) {
+    if (showRequest && options.headers[Http.showLog] != false) {
       try {
         _logOnRequest(options);
       } catch (e) {
@@ -68,7 +68,7 @@ class PrettyDioLogger extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    if (showError && err.requestOptions.headers[HttpService.showLog] != false) {
+    if (showError && err.requestOptions.headers[Http.showLog] != false) {
       try {
         _logOnError(err);
       } catch (e) {
@@ -81,7 +81,7 @@ class PrettyDioLogger extends Interceptor {
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
     if (showResponse &&
-        response.requestOptions.headers[HttpService.showLog] != false) {
+        response.requestOptions.headers[Http.showLog] != false) {
       try {
         _logOnResponse(response);
       } catch (e) {

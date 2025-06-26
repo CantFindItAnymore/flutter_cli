@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  static const String Font_Montserrat = 'Montserrat';
+  static const String fontMontserrat = 'Montserrat';
 
-  static const String Font_YuYang = 'YuYang';
+  static const String fontYuYang = 'YuYang';
 
   static const Color themeColor = Color(0xFFE73B26);
 
@@ -14,7 +14,7 @@ class AppTheme {
   /// 亮色主题样式
   static ThemeData light = ThemeData(
     useMaterial3: false,
-    fontFamily: Font_Montserrat,
+    fontFamily: fontMontserrat,
     colorScheme: ColorScheme.fromSeed(
       seedColor: themeColor,
       primary: themeColor,
@@ -38,7 +38,7 @@ class AppTheme {
   /// 暗色主题样式
   static ThemeData dark = ThemeData(
     useMaterial3: false,
-    fontFamily: Font_Montserrat,
+    fontFamily: fontMontserrat,
     colorScheme: ColorScheme.fromSeed(
       seedColor: darkThemeColor,
       brightness: Brightness.dark,
